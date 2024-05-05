@@ -1,7 +1,6 @@
 // client.js
 document.addEventListener("DOMContentLoaded", () => {
 	const socket = io();
-	const chatWindow = document.getElementById("chat-window");
 	const messageList = document.getElementById("message-list");
 	const messageInput = document.getElementById("message-input");
 	const sendButton = document.getElementById("send-button");
@@ -31,13 +30,13 @@ document.addEventListener("DOMContentLoaded", () => {
 		});
 	}
 
-    sendButton.addEventListener("click", () => {
-        const message = messageInput.value;
-        if (message.trim() !== "") {
-            socket.emit("message", { message, sender: username, room: currentRoom });
-            messageInput.value = "";
-        }
-    });
+	sendButton.addEventListener("click", () => {
+		const message = messageInput.value;
+		if (message.trim() !== "") {
+			socket.emit("message", { message, sender: username, room: currentRoom });
+			messageInput.value = "";
+		}
+	});
 
 	// Función para cambiar de sala
 	function changeRoom(newRoom) {
@@ -80,6 +79,39 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 	});
 
+	// Cuando el cliente se conecta
+	socket.on("connect", () => {
+		// Leer el archivo userRooms.json para obtener las salas del usuario
+		fetch("/userRooms.json")
+			.then((response) => response.json())
+			.then((data) => {
+				const userRooms = data[username] || [];
+				userRooms.forEach((room) => {
+					createRoomDiv(room);
+				});
+			})
+			.catch((error) => {
+				console.error("Error al leer userRooms.json:", error);
+			});
+	});
+
+	// Función para crear un nuevo div para cada sala en el room-list
+	function createRoomDiv(roomName) {
+		const div = document.createElement("div");
+		div.textContent = roomName;
+		div.classList.add("room-item");
+		div.addEventListener("click", () => {
+			socket.emit("joinRoom", { room: roomName, username }, (response) => {
+				if (response.success) {
+					changeRoom(roomName);
+				} else {
+					alert(response.message);
+				}
+			});
+		});
+		roomList.appendChild(div);
+	}
+
 	// Recibir la lista de salas disponibles y crear un div para cada una
 	socket.on("roomList", (data) => {
 		const roomListData = data.roomList || [];
@@ -87,6 +119,14 @@ document.addEventListener("DOMContentLoaded", () => {
 			createRoomDiv(roomName);
 		});
 	});
+
+    socket.on("updateRoomList", (data) => {
+        const roomListData = data.rooms || [];
+        roomList.innerHTML = ""; // Limpiar la lista de salas
+        roomListData.forEach((roomName) => {
+            createRoomDiv(roomName); // Crear un div para cada sala
+        });
+    });
 
 	// Función para crear un nuevo div para cada sala en la lista de salas
 	function createRoomDiv(roomName) {
@@ -112,20 +152,31 @@ document.addEventListener("DOMContentLoaded", () => {
 			addMessage(msg);
 		});
 	});
-    
-    // Escuchar los mensajes enviados por otros usuarios
-    socket.on("message", (data) => {
-        const { message, sender, room } = data;
-        if (room === currentRoom) {
-            addMessage({ message, sender });
-            messageList.scrollTop = messageList.scrollHeight; // Desplazarse al último mensaje
-        }
-    });
+
+	// Escuchar los mensajes enviados por otros usuarios
+	socket.on("message", (data) => {
+		const { message, sender, room } = data;
+		if (room === currentRoom) {
+			if (sender === "Sistema") {
+				// Si el sender es "Sistema", solo mostrar el mensaje
+				addMessage({ message });
+			} else {
+				// Si el sender es otro usuario, mostrar el mensaje con el sender
+				addMessage({ message, sender });
+			}
+			messageList.scrollTop = messageList.scrollHeight; // Desplazarse al último mensaje
+		}
+	});
 
 	// Función para agregar un mensaje a la lista de mensajes
 	function addMessage(msg) {
 		const li = document.createElement("li");
-		li.textContent = `${msg.sender}: ${msg.message}`;
+		// Mostrar el sender solo si no es "Sistema"
+		if (msg.sender && msg.sender !== "Sistema") {
+			li.textContent = `${msg.sender}: ${msg.message}`;
+		} else {
+			li.textContent = `${msg.message}`;
+		}
 		li.classList.add("message");
 		if (msg.sender === username) {
 			li.classList.add("sent");

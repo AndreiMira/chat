@@ -9,7 +9,7 @@ body {
 
 .sidebar {
     width: 30%;
-    height: 100vh;
+    flex-grow: 1;
     background-color: #f3f3f3;
     float: left;
 }
@@ -21,6 +21,7 @@ body {
 
 .button-container {
     display: flex;
+    justify-content:  center;
 }
 
 .navbar button {
@@ -52,14 +53,22 @@ body {
 }
 
 .room-name {
-    font-size: 24px;
+    border-bottom: 3px solid black;
+    font-size: 40px;
+    padding: 5px;
     margin-bottom: 10px;
+    height: fit-content;
+    width: 67.5%;
+    margin: 0;
+    position: fixed;
+    top: 0;
 }
 
 .chat-window {
     width: 70%;
-    flex: 1;
-    padding: 20px;
+    height: 100%;
+    flex-grow: 1;
+    padding: 5px 20px 5px 20px;
     overflow-y: auto;
     background-color: #fff; /* Fondo blanco para el área de chat */
     align-self: flex-end; /* Colocar el chat en la parte inferior */
@@ -70,7 +79,7 @@ body {
     padding: 0;
     margin: 0;
     overflow-y: auto;
-    max-height: calc(100vh - 200px); /* Ajustar la altura máxima del chat */
+    max-height: calc(100vh - 110px); /* Ajustar la altura máxima del chat */
 }
 
 .message {
@@ -122,4 +131,8 @@ body {
 
 .send-button:hover {
     background-color: #0056b3;
+}
+
+.admin {
+    color: gold; /* Cambiar el color del nombre del administrador */
 }

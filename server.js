@@ -13,87 +13,125 @@ app.use(express.static(path.join(__dirname)));
 
 let rooms = {}; // Almacenar las salas existentes
 let messageHistory = {}; // Historial de mensajes
+let userRooms = {};
+
+if (fs.existsSync("userRooms.json")) {
+	const data = fs.readFileSync("userRooms.json", "utf8");
+	userRooms = JSON.parse(data);
+}
 
 // Cargar las salas desde el archivo JSON si existe
 if (fs.existsSync("rooms.json")) {
-    const data = fs.readFileSync("rooms.json", "utf8");
-    rooms = JSON.parse(data);
+	const data = fs.readFileSync("rooms.json", "utf8");
+	rooms = JSON.parse(data);
 }
 
 // Cargar el historial de mensajes desde un archivo si existe, de lo contrario, iniciar con un objeto vacío
 if (fs.existsSync("messageHistory.json")) {
-    const data = fs.readFileSync("messageHistory.json", "utf8");
-    messageHistory = JSON.parse(data);
+	const data = fs.readFileSync("messageHistory.json", "utf8");
+	messageHistory = JSON.parse(data);
 }
 
 io.on("connection", (socket) => {
-    console.log("Nuevo usuario conectado");
+	console.log("Nuevo usuario conectado");
 
-    // Manejar el establecimiento del nombre de usuario
-    socket.on("setUsername", (data) => {
-        const { username } = data;
-        socket.username = username; // Asignar el nombre de usuario al socket
-    });
+	// Manejar el establecimiento del nombre de usuario
+	socket.on("setUsername", (data) => {
+		const { username } = data;
+		socket.username = username; // Asignar el nombre de usuario al socket
+	});
 
-    socket.on("message", (data) => {
-        const { message, sender, room } = data;
-        
-        // Si la sala no está especificada, enviar el mensaje a la sala predeterminada "Chat General"
-        const targetRoom = room ? room : "Chat General";
+	// Manejo de mensajes en el servidor
+	socket.on("message", (data) => {
+		const { message, sender, room } = data;
 
-        io.to(targetRoom).emit("message", { message, sender, room: targetRoom });
+		const targetRoom = room ? room : "Chat General";
 
-        // Guardar el mensaje en el historial
-        if (!messageHistory[targetRoom]) {
-            messageHistory[targetRoom] = [];
-        }
-        messageHistory[targetRoom].push({ message, sender });
-        fs.writeFileSync("messageHistory.json", JSON.stringify(messageHistory));
-    });
+		// Si el sender es "Sistema", enviar el mensaje sin el sender
+		if (sender === "Sistema") {
+			io.to(targetRoom).emit("message", { message, room: targetRoom });
+		} else {
+			// Si el sender es otro usuario, enviar el mensaje con el sender
+			io.to(targetRoom).emit("message", { message, sender, room: targetRoom });
+		}
 
-    socket.on("joinRoom", (data, callback) => {
-        const { room } = data;
-        const username = socket.username; // Obtener el nombre de usuario del socket
+		// Guardar el mensaje en el historial
+		if (!messageHistory[targetRoom]) {
+			messageHistory[targetRoom] = [];
+		}
 
-        // Verificar si la sala existe
-        if (room !== "Chat General" && !rooms[room]) {
-            callback({ success: false, message: "La sala no existe." });
-        } else {
-            socket.join(room);
-            callback({ success: true, username }); // Enviar el nombre de usuario al cliente
+		messageHistory[targetRoom].push({ message, sender });
+		fs.writeFileSync("messageHistory.json", JSON.stringify(messageHistory));
+	});
 
-            // Enviar el historial de mensajes cuando el usuario se une a la sala
-            socket.emit("messageHistory", { history: messageHistory[room] || [] });
+	socket.on("joinRoom", (data, callback) => {
+		const { room } = data;
+		const username = socket.username;
 
-            io.to(room).emit("message", { message: `${username} se ha unido a la sala.`, sender: "Sistema", room });
+		// Verificar si la sala existe
+		if (room !== "Chat General" && !rooms[room]) {
+			callback({ success: false, message: "La sala no existe." });
+		} else {
+			socket.join(room);
+			callback({ success: true, username });
 
-            // Si la sala es diferente a "Chat General" y no existe en la lista de salas, almacenarla
-            if (room !== "Chat General" && !rooms[room]) {
-                rooms[room] = true;
-                fs.writeFileSync("rooms.json", JSON.stringify(rooms));
-            }
-        }
-    });
+			// Guardar la sala en la lista de salas del usuario
+			if (!userRooms[username]) {
+				userRooms[username] = [];
+			}
 
-    socket.on("createRoom", (data, callback) => {
-        const { room } = data;
-        if (!rooms[room]) {
-            // Verificar si la sala ya existe
-            rooms[room] = true;
-            socket.join(room);
-            callback({ success: true });
-            socket.emit("roomMessage", { message: "¡Has creado una nueva sala!" }); // Mensaje de confirmación
+			if (!userRooms[username].includes(room)) {
+				userRooms[username].push(room);
+				fs.writeFileSync("userRooms.json", JSON.stringify(userRooms));
 
-            // Almacenar la nueva sala
-            fs.writeFileSync("rooms.json", JSON.stringify(rooms));
-        } else {
-            callback({ success: false, message: "La sala ya existe." });
-        }
-    });
+				// Emitir las salas actualizadas al cliente
+				io.to(socket.id).emit("updateRoomList", { rooms: userRooms[username] });
+			}
 
-    socket.on("disconnect", () => {
-        console.log("Usuario desconectado");
-    });
+			// Enviar el historial de mensajes cuando el usuario se une a la sala
+			socket.emit("messageHistory", { history: messageHistory[room] || [] });
+
+			io.to(room).emit("message", { message: `${username} se ha unido a la sala.`, sender: "Sistema", room });
+
+			// Si la sala es diferente a "Chat General" y no existe en la lista de salas, almacenarla
+			if (room !== "Chat General" && !rooms[room]) {
+				rooms[room] = true;
+				fs.writeFileSync("rooms.json", JSON.stringify(rooms));
+			}
+		}
+	});
+
+	socket.on("createRoom", (data, callback) => {
+		const { room } = data;
+        const username = socket.username;
+		if (!rooms[room]) {
+			// Verificar si la sala ya existe
+			rooms[room] = true;
+			socket.join(room);
+			callback({ success: true });
+
+			// Agregar la sala a la lista de salas del usuario
+			if (!userRooms[username]) {
+				userRooms[username] = [];
+			}
+			if (!userRooms[username].includes(room)) {
+				userRooms[username].push(room);
+				fs.writeFileSync("userRooms.json", JSON.stringify(userRooms));
+
+				// Emitir las salas actualizadas al cliente
+				io.to(socket.id).emit("updateRoomList", { rooms: userRooms[username] });
+			}
+
+			// Almacenar la nueva sala
+			fs.writeFileSync("rooms.json", JSON.stringify(rooms));
+		} else {
+			callback({ success: false, message: "La sala ya existe." });
+		}
+	});
+
+	socket.on("disconnect", () => {
+		console.log("Usuario desconectado");
+	});
 });
 
 const PORT = process.env.PORT || 3000;
