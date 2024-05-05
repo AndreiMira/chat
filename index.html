@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Chat Online</title>
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+        <aside class="sidebar">
+            <nav class="navbar">
+                <div class="button-container">
+                    <button id="create-room-button">Crear Sala</button>
+                    <button id="join-room-button">Unirse a Sala</button>
+                </div>
+            </nav>
+            <div id="room-list" class="room-list"></div>
+        </aside>
+        
+        <main class="chat-window">
+            <div id="room-name" class="room-name">Chat General</div>
+            <ul id="message-list" class="message-list"></ul>
+            <input type="text" id="message-input" class="message-input" placeholder="Escribe tu mensaje..." />
+            <button id="send-button" class="send-button">Enviar</button>
+        </main>
+        
+
+		<script src="/socket.io/socket.io.js"></script>
+		<script src="client.js"></script>
+	</body>
+</html>
