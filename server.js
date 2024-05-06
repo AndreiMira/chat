@@ -41,11 +41,38 @@ io.on("connection", (socket) => {
 		socket.username = username; // Asignar el nombre de usuario al socket
 	});
 
+	// Función para filtrar palabras prohibidas
+	function filterMessage(message) {
+		const forbiddenWords = [
+			"puta", "caca", "tonto", "gay", "marica", "gilipollas", "idiota", "mierda", "pendejo", "joder",
+			"cabrón", "hijo de puta", "imbécil", "concha", "estúpido", "bastardo", "zorra", "puto", "maldito",
+			"coño", "verga", "bicho", "culero", "cerdo", "retrasado", "pichula", "pendeja", "prostituta", "capullo",
+			"pelele", "chingado", "estúpida", "tarado", "infeliz", "pelotudo", "mamón", "cagada", "maldita", "pija",
+			"chucha", "traga", "huevón", "cagado", "forro", "chingada", "putas", "puto el que lo lea", "cojones", "mamar",
+			"vergas", "mamon", "pendejadas", "culera", "mamadas", "coger", "pendejos", "malparido", "pinche", "pendejo/a",
+			"huevos", "estúpidos", "jodido", "huevona", "cagon", "chupar", "pito", "idiota/a", "hdp", "jotos", "cabron/a",
+			"mamaguevo", "huevon", "cabrones", "pendejada", "puta madre", "malditas", "vergon", "chingados", "penes",
+			"cabrona", "puñetas", "culear", "putita", "culos", "mamabicho", "jodidos", "pito", "joto", "madres", "puto/a",
+			"mamadas", "maricones", "culeada", "pinga", "maricon", "maricon", "pija", "pichas", "pichar", "mierdero"
+		];
+
+		// Reemplazar palabras prohibidas por asteriscos
+		forbiddenWords.forEach((word) => {
+			const regex = new RegExp(word, "gi"); // "gi" para coincidencias globales y sin distinguir entre mayúsculas y minúsculas
+			message = message.replace(regex, "*".repeat(word.length));
+		});
+
+		return message;
+	}
+
 	// Manejo de mensajes en el servidor
 	socket.on("message", (data) => {
-		const { message, sender, room } = data;
+		let { message, sender, room } = data;
 
 		const targetRoom = room ? room : "Chat General";
+
+		// Filtrar el mensaje
+		message = filterMessage(message);
 
 		// Si el sender es "Sistema", enviar el mensaje sin el sender
 		if (sender === "Sistema") {
@@ -103,7 +130,7 @@ io.on("connection", (socket) => {
 
 	socket.on("createRoom", (data, callback) => {
 		const { room } = data;
-        const username = socket.username;
+		const username = socket.username;
 		if (!rooms[room]) {
 			// Verificar si la sala ya existe
 			rooms[room] = true;
